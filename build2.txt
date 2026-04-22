@@ -1,0 +1,37 @@
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\abc\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\abc\Desktop\Adflowmymid\package-lock.json
+
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 37.9s
+  Running TypeScript ...
+  Finished TypeScript in 3.2s ...
+  Collecting page data using 3 workers ...
+Fetching ads...
+undefined
+undefined
+undefined
+undefined
+Error: supabaseUrl is required.
+    at <unknown> (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\Desktop_Adflowmymid_lib_supabase_0jup~dt.js:37:43441)
+    at new r_ (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\Desktop_Adflowmymid_lib_supabase_0jup~dt.js:37:43692)
+    at module evaluation (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\Desktop_Adflowmymid_lib_supabase_0jup~dt.js:37:48135)
+    at instantiateModule (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\[turbopack]_runtime.js:853:9)
+    at getOrInstantiateModuleFromParent (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\[turbopack]_runtime.js:877:12)
+    at Context.esmImport [as i] (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\[turbopack]_runtime.js:281:20)
+    at module evaluation (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\[root-of-the-server]__0m1~4gz._.js:1:1187)
+    at instantiateModule (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\[turbopack]_runtime.js:853:9)
+    at instantiateRuntimeModule (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\[turbopack]_runtime.js:882:12)
+    at getOrInstantiateRuntimeModule (C:\Users\abc\Desktop\Adflowmymid\.next\server\chunks\[turbopack]_runtime.js:895:12)
+
+> Build error occurred
+Error: Failed to collect page data for /api/payments
+    at ignore-listed frames {
+  type: 'Error'
+}
