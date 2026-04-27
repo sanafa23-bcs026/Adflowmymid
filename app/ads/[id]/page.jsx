@@ -1,8 +1,10 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { startBuyerSellerChat } from '@/lib/chatService'
+import { isAdInCart, toggleCartItem } from '@/lib/cartService'
+import { formatAdPrice, isPublicAdVisible, preparePublicAds } from '@/lib/adHelpers'
 
 const timeAgo = (date) => {
   if (!date) return ''
@@ -15,8 +17,8 @@ const timeAgo = (date) => {
 }
 
 export default function AdDetailPage({ params }) {
-  const { id } = React.use(params)
   const router = useRouter()
+  const { id } = React.use(params)
   const [ad, setAd] = useState(null)
   const [related, setRelated] = useState([])
   const [loading, setLoading] = useState(true)
@@ -25,28 +27,62 @@ export default function AdDetailPage({ params }) {
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
+  const [inCart, setInCart] = useState(false)
+  const [cartLoading, setCartLoading] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user))
-    fetchAd()
+    if (!id) return
+
+    const initialize = async () => {
+      const { data } = await supabase.auth.getUser()
+      const user = data?.user || null
+      setCurrentUser(user)
+
+      await fetchAd()
+
+      if (user?.id) {
+        const cartState = await isAdInCart(user.id, id).catch(() => false)
+        setInCart(cartState)
+      }
+    }
+
+    initialize()
   }, [id])
 
   async function fetchAd() {
-    const { data } = await supabase.from('ads').select('*').eq('id', id).single()
-    if (data) {
-      setAd(data)
-      fetchRelated(data.category, data.id)
+    const { data, error } = await supabase.from('ads').select('*').eq('id', id).maybeSingle()
+
+    if (error) {
+      console.error('Ad fetch failed:', error)
+      setAd(null)
+      setLoading(false)
+      return
     }
+
+    if (!data || !isPublicAdVisible(data)) {
+      setAd(null)
+      setLoading(false)
+      return
+    }
+
+    setAd(data)
+    fetchRelated(data.category, data.id)
     setLoading(false)
   }
 
   async function fetchRelated(category, excludeId) {
-    const { data } = await supabase
-      .from('ads').select('*')
-      .eq('category', category)
-      .or('status.is.null,status.neq.rejected')
-      .neq('id', excludeId).limit(3)
-    setRelated(data || [])
+    const { data, error } = await supabase.from('ads').select('*').eq('category', category).limit(25)
+
+    if (error) {
+      console.error('Related ads fetch failed:', error)
+      setRelated([])
+      return
+    }
+
+    const visibleRelated = preparePublicAds((data || []).filter((item) => item.id !== excludeId))
+      .slice(0, 3)
+
+    setRelated(visibleRelated)
   }
 
   async function handleChat() {
@@ -70,13 +106,31 @@ export default function AdDetailPage({ params }) {
     setChatLoading(false)
   }
 
+  async function handleCartToggle() {
+    if (!currentUser?.id) {
+      router.push('/auth/login')
+      return
+    }
+
+    setCartLoading(true)
+    try {
+      const result = await toggleCartItem(currentUser.id, ad.id)
+      setInCart(Boolean(result?.inCart))
+      window.dispatchEvent(new Event('cart:updated'))
+    } catch (error) {
+      console.error('Cart toggle failed:', error)
+    } finally {
+      setCartLoading(false)
+    }
+  }
+
   function handleCall() {
     if (ad?.phone) window.open(`tel:${ad.phone}`)
     else alert('Phone number not available')
   }
 
   const images = ad?.images || (ad?.image_url ? [ad.image_url] : [])
-  const formatPrice = (p) => p ? 'Rs. ' + Number(p).toLocaleString('en-PK') : 'Contact'
+  const priceLabel = useMemo(() => formatAdPrice(ad?.price), [ad?.price])
 
   if (loading) return (
     <div className="min-h-screen bg-[#0b0b14] flex items-center justify-center">
@@ -96,8 +150,6 @@ export default function AdDetailPage({ params }) {
 
   return (
     <div className="min-h-screen bg-[#0b0b14] text-white pb-16">
-
-      {/* Back */}
       <div className="max-w-5xl mx-auto px-4 pt-5 pb-2">
         <button onClick={() => router.back()}
           className="text-gray-400 hover:text-white text-sm flex items-center gap-1.5 transition">
@@ -106,10 +158,7 @@ export default function AdDetailPage({ params }) {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 grid md:grid-cols-[1fr_340px] gap-8">
-
-        {/* LEFT — Images + Details */}
         <div>
-          {/* Main Image */}
           <div className="bg-[#111120] border border-white/[0.06] rounded-2xl overflow-hidden h-80 md:h-96 mb-3">
             {images.length > 0 ? (
               <img src={images[activeImg]} alt={ad.title}
@@ -119,7 +168,6 @@ export default function AdDetailPage({ params }) {
             )}
           </div>
 
-          {/* Thumbnails */}
           {images.length > 1 && (
             <div className="flex gap-2 mb-6">
               {images.map((img, i) => (
@@ -131,7 +179,6 @@ export default function AdDetailPage({ params }) {
             </div>
           )}
 
-          {/* Description */}
           <div className="bg-[#111120] border border-white/[0.06] rounded-2xl p-5 mb-5">
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Description</h2>
             <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
@@ -139,7 +186,6 @@ export default function AdDetailPage({ params }) {
             </p>
           </div>
 
-          {/* Details Table */}
           <div className="bg-[#111120] border border-white/[0.06] rounded-2xl p-5">
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Details</h2>
             <div className="space-y-2.5">
@@ -148,6 +194,7 @@ export default function AdDetailPage({ params }) {
                 ['Condition', ad.condition],
                 ['Location', ad.location],
                 ['Posted', timeAgo(ad.created_at)],
+                ['Expires', ad.expire_at ? new Date(ad.expire_at).toLocaleDateString() : null],
               ].filter(([, v]) => v).map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between py-1.5 border-b border-white/[0.04] last:border-0">
                   <span className="text-sm text-gray-500">{label}</span>
@@ -158,25 +205,26 @@ export default function AdDetailPage({ params }) {
           </div>
         </div>
 
-        {/* RIGHT — Sticky Sidebar */}
         <div className="space-y-4">
           <div className="md:sticky md:top-4 space-y-4">
-
-            {/* Price + Title */}
             <div className="bg-[#111120] border border-white/[0.06] rounded-2xl p-5">
               {ad.condition && (
                 <span className="inline-block bg-purple-600/20 text-purple-300 text-[11px] font-semibold px-3 py-1 rounded-full mb-3">
                   {ad.condition}
                 </span>
               )}
+              {ad.featured && (
+                <span className="inline-block bg-amber-500/20 text-amber-300 text-[11px] font-semibold px-3 py-1 rounded-full mb-3 ml-2">
+                  ★ Featured
+                </span>
+              )}
               <h1 className="text-xl font-black leading-snug mb-3">{ad.title}</h1>
-              <p className="text-3xl font-black text-green-400 mb-2">{formatPrice(ad.price)}</p>
+              <p className="text-3xl font-black text-green-400 mb-2">{priceLabel}</p>
               {ad.location && (
                 <p className="text-sm text-gray-500">📍 {ad.location}</p>
               )}
             </div>
 
-            {/* Seller */}
             <div className="bg-[#111120] border border-white/[0.06] rounded-2xl p-4">
               <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-3">Seller</p>
               <div className="flex items-center gap-3">
@@ -190,7 +238,6 @@ export default function AdDetailPage({ params }) {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="space-y-2.5">
               <button onClick={handleChat} disabled={chatLoading}
                 className="w-full py-3 bg-green-500 hover:bg-green-400 disabled:opacity-50 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2">
@@ -205,13 +252,20 @@ export default function AdDetailPage({ params }) {
                 📞 Call Seller
               </button>
 
+              <button
+                onClick={handleCartToggle}
+                disabled={cartLoading}
+                className={`w-full py-3 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2 border ${inCart ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-[#111120] border-white/[0.1] hover:bg-white/[0.05]'}`}
+              >
+                {cartLoading ? 'Updating...' : inCart ? '✓ In Cart' : 'Add to Cart'}
+              </button>
+
               <button onClick={() => setIsFav(!isFav)}
                 className={`w-full py-3 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2 border ${isFav ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-[#111120] border-white/[0.1] hover:bg-white/[0.05]'}`}>
                 {isFav ? '❤️ Saved to Favorites' : '🤍 Add to Favorites'}
               </button>
             </div>
 
-            {/* Safety tip */}
             <div className="bg-amber-500/[0.07] border border-amber-500/20 rounded-xl p-3">
               <p className="text-amber-400 text-xs font-semibold mb-1">⚠ Safety Tip</p>
               <p className="text-amber-300/70 text-xs leading-relaxed">
@@ -222,7 +276,6 @@ export default function AdDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Related Ads */}
       {related.length > 0 && (
         <div className="max-w-5xl mx-auto px-4 mt-10">
           <h2 className="text-lg font-black mb-4">Related Ads</h2>
@@ -239,7 +292,7 @@ export default function AdDetailPage({ params }) {
                 <div className="p-3">
                   <p className="text-xs font-semibold text-white line-clamp-2 mb-1">{r.title}</p>
                   <p className="text-sm font-black text-green-400">
-                    {r.price ? 'Rs. ' + Number(r.price).toLocaleString('en-PK') : 'Contact'}
+                    {formatAdPrice(r.price)}
                   </p>
                 </div>
               </div>

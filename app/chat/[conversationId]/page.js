@@ -1,11 +1,12 @@
 'use client'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ChatWindow from '@/components/chat/ChatWindow'
 import { supabase } from '@/lib/supabase'
-import { useEffect, useState } from 'react'
 
 export default function ChatPage({ params }) {
   const router = useRouter()
+  const { conversationId } = React.use(params)
   const [userRole, setUserRole] = useState('customer')
 
   useEffect(() => {
@@ -25,7 +26,6 @@ export default function ChatPage({ params }) {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header with Back Button */}
       <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
         <button
           onClick={() => router.back()}
@@ -36,10 +36,9 @@ export default function ChatPage({ params }) {
         <h1 className="font-semibold text-gray-800">Chat</h1>
       </div>
 
-      {/* Chat Window */}
       <div className="flex-1 p-4">
         <ChatWindow
-          conversationId={params.conversationId}
+          conversationId={conversationId}
           currentUserRole={userRole}
         />
       </div>

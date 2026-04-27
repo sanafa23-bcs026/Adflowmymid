@@ -1,0 +1,58 @@
+﻿
+> my-app@1.0.0 build
+> next build
+
+   Γû▓ Next.js 15.5.15
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully in 33.5s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/28) ...
+   Generating static pages (7/28) 
+   Generating static pages (14/28) 
+   Generating static pages (21/28) 
+ Γ£ô Generating static pages (28/28)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+Γöî Γùï /                                    2.39 kB         105 kB
+Γö£ Γùï /_not-found                            159 B         102 kB
+Γö£ ╞Æ /admin/chat                            159 B         102 kB
+Γö£ Γùï /ads                                 3.18 kB         163 kB
+Γö£ ╞Æ /ads/[id]                            3.35 kB         163 kB
+Γö£ Γùï /ads/create                            511 B         103 kB
+Γö£ Γùï /ads/new                              2.6 kB         162 kB
+Γö£ ╞Æ /api/admin                             453 B         103 kB
+Γö£ ╞Æ /api/ads                               159 B         102 kB
+Γö£ ╞Æ /api/auth                              159 B         102 kB
+Γö£ ╞Æ /api/auth/ads                          159 B         102 kB
+Γö£ ╞Æ /api/client/ads                        483 B         103 kB
+Γö£ ╞Æ /api/cron/expire                       159 B         102 kB
+Γö£ ╞Æ /api/cron/publish                      159 B         102 kB
+Γö£ ╞Æ /api/moderator                         414 B         103 kB
+Γö£ ╞Æ /api/payments                          159 B         102 kB
+Γö£ Γùï /auth/login                          2.08 kB         162 kB
+Γö£ Γùï /auth/register                       1.99 kB         162 kB
+Γö£ Γùï /cart                                4.81 kB         165 kB
+Γö£ Γùï /categories                            159 B         102 kB
+Γö£ ╞Æ /chat                                  159 B         102 kB
+Γö£ ╞Æ /chat/[conversationId]                2.4 kB         162 kB
+Γö£ Γùï /dashboard                             928 B         161 kB
+Γö£ Γùï /dashboard/admin                       783 B         103 kB
+Γö£ Γùï /dashboard/admin/ads                   159 B         102 kB
+Γö£ ╞Æ /dashboard/admin/ads/[slug]            159 B         102 kB
+Γö£ Γùï /dashboard/moderator                   159 B         102 kB
+Γö£ Γùï /explore                               159 B         102 kB
+Γöö Γùï /packages                            3.43 kB         163 kB
++ First Load JS shared by all             102 kB
+  Γö£ chunks/255-4f212684648fcab9.js         46 kB
+  Γö£ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
+  Γöö other shared chunks (total)          1.99 kB
+
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

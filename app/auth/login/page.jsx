@@ -12,7 +12,6 @@ const ROLES = [
 export default function LoginPage() {
   const [role, setRole] = useState("buyer");
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,24 +45,6 @@ export default function LoginPage() {
         : "/dashboard";
   };
 
-  // ✅ FIXED GOOGLE LOGIN (safe version)
-  const handleGoogle = async () => {
-    setGoogleLoading(true);
-    setError("");
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-
-    if (error) {
-      setError(error.message);
-      setGoogleLoading(false);
-    }
-  };
-
   const current = ROLES.find((r) => r.key === role);
 
   return (
@@ -86,7 +67,6 @@ export default function LoginPage() {
           <h1 className="text-xl font-extrabold text-center mb-1">Welcome Back</h1>
           <p className="text-gray-500 text-xs text-center mb-5">Sign in to continue</p>
 
-          {/* Roles */}
           <div className="mb-4">
             <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-2">Sign in as</p>
             <div className="flex gap-1.5">
@@ -106,22 +86,18 @@ export default function LoginPage() {
                 </button>
               ))}
             </div>
-
             <p className="text-[10px] text-gray-600 mt-1.5 text-center">
               Logging in as: {current?.icon} {current?.label}
             </p>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="bg-red-500/[0.08] border border-red-500/20 text-red-400 px-3 py-2 rounded-lg text-xs mb-3">
               {error}
             </div>
           )}
 
-          {/* Form */}
           <form onSubmit={handleLogin} className="space-y-3">
-
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">✉</span>
               <input
@@ -140,7 +116,6 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl pl-8 pr-12 py-2.5 text-sm text-white placeholder-gray-500"
               />
-
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
@@ -156,19 +131,8 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Google */}
-          <div className="mt-4">
-            <button
-              onClick={handleGoogle}
-              disabled={googleLoading}
-              className="w-full bg-white text-black py-2.5 rounded-xl text-sm font-semibold"
-            >
-              {googleLoading ? "Redirecting..." : "Continue with Google"}
-            </button>
-          </div>
-
         </div>
       </div>
-    </div> 
+    </div>
   );
 }
