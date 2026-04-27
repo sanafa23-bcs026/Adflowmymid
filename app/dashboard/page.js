@@ -9,15 +9,21 @@ export default function Dashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.auth.getSession();
-      const u = data.session?.user;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const u = data.session?.user;
 
-      if (!u) {
-        window.location.href = "/login";
+        if (!u) {
+          window.location.href = "/auth/login";
+          return;
+        }
+
+        setUser(u);
+      } catch (sessionError) {
+        console.warn("Auth session missing, redirecting to login:", sessionError);
+        window.location.href = "/auth/login";
         return;
       }
-
-      setUser(u);
 
       const { data: profile } = await supabase
         .from("profiles")

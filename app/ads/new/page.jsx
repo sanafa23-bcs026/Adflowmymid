@@ -1,4 +1,4 @@
-"use client";
+'use client'
 import { useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
@@ -11,6 +11,7 @@ export default function PostAdPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,37 +19,54 @@ export default function PostAdPage() {
 
     const title = e.target.title.value.trim();
     const category = e.target.category.value;
+    const condition = e.target.condition.value;
     const price = e.target.price.value.trim();
     const description = e.target.description.value.trim();
     const location = e.target.location.value.trim();
+    const phone = e.target.phone.value.trim();
 
-    if (!title || !category || !price || !description) {
-      return setError("Please fill all required fields.");
+    if (!title || !category || !condition || !price || !description || !imageUrl.trim()) {
+      return setError("Please fill all required fields: title, category, condition, price, description, and image URL.");
     }
 
     if (category === "") {
       return setError("Please select a category.");
     }
 
+    if (condition === "") {
+      return setError("Please select the item condition.");
+    }
+
     setLoading(true);
 
+    let sessionUser = null;
     try {
-      // Get session (optional — don't block if not logged in)
       const { data: sessionData } = await supabase.auth.getSession();
-      const sessionUser = sessionData?.session?.user;
+      sessionUser = sessionData?.session?.user || null;
+    } catch (sessionError) {
+      console.warn("No active auth session:", sessionError);
+    }
 
-      const insertData = {
-        title,
-        category,
-        price: parseFloat(price),
-        description,
-        location: location || null,
-        status: "pending",
-        seller_name: sessionUser?.user_metadata?.full_name
-          || sessionUser?.email?.split("@")[0]
-          || "Anonymous",
-      };
+    const insertData = {
+      title,
+      category,
+      condition,
+      price: Number(price),
+      description,
+      location: location || null,
+      phone: phone || null,
+      image_url: imageUrl.trim(),
+      status: "pending",
+      featured: false,
+      package_id: "basic",
+    };
 
+    if (sessionUser?.id) {
+      insertData.user_id = sessionUser.id;
+      insertData.seller_name = sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0] || null;
+    }
+
+    try {
       if (sessionUser?.id) {
         insertData.user_id = sessionUser.id;
       }
@@ -143,7 +161,6 @@ export default function PostAdPage() {
               </select>
             </div>
 
-            {/* Price + Location */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Price (Rs.) *</label>
@@ -151,10 +168,42 @@ export default function PostAdPage() {
                   className="w-full bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition" />
               </div>
               <div>
+                <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Condition *</label>
+                <select name="condition"
+                  className="w-full bg-[#0b0b14] border border-white/[0.07] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 transition appearance-none">
+                  <option value="">Select condition...</option>
+                  <option value="New">New</option>
+                  <option value="Like New">Like New</option>
+                  <option value="Good">Good</option>
+                  <option value="Fair">Fair</option>
+                  <option value="Used">Used</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Location</label>
                 <input name="location" placeholder="Lahore"
                   className="w-full bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition" />
               </div>
+              <div>
+                <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Phone</label>
+                <input name="phone" placeholder="0301 1234567"
+                  className="w-full bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Image URL *</label>
+              <input
+                name="imageUrl"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="Paste image URL here"
+                className="w-full bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition"
+              />
+              <p className="text-xs text-gray-500 mt-2">Paste a publicly accessible image URL for the ad.</p>
             </div>
           </div>
 

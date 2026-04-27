@@ -1,182 +1,281 @@
-"use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
+'use client'
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '../../lib/supabase'
 
-const CATEGORIES = ["All","Electronics","Vehicles","Real Estate","Services","Jobs","Fashion","Home & Garden","Pets","Accessories"];
+const CATEGORIES = [
+  'All', 'Electronics', 'Vehicles', 'Real Estate', 'Services',
+  'Jobs', 'Fashion', 'Home & Garden', 'Pets', 'Accessories', 'Other'
+]
+const CONDITIONS = ['New', 'Like New', 'Good', 'Fair', 'Used']
 
-const timeAgo = (date) => {
-  if (!date) return "";
-  const diff = Math.floor((Date.now() - new Date(date)) / 1000);
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-};
+export default function BrowsePage() {
+  const router = useRouter()
+  const [ads, setAds] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('All')
+  const [conditions, setConditions] = useState([])
+  const [location, setLocation] = useState('')
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+  const [sortBy, setSortBy] = useState('newest')
+  const [showFilters, setShowFilters] = useState(false)
 
-const BADGE = {
-  premium: "bg-violet-600 text-white",
-  standard: "bg-amber-500 text-white",
-  basic: "bg-gray-600 text-white",
-};
+  const fetchAds = useCallback(async () => {
+    setLoading(true)
 
-export default function AdsPage() {
-  const [ads, setAds] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState("All");
-  const [search, setSearch] = useState("");
-  const router = useRouter();
+    const buildQuery = (includeStatus = true) => {
+      let query = supabase.from('ads').select('*')
+
+      if (includeStatus) {
+        query = query.not('status', 'eq', 'rejected')
+      }
+      if (search) query = query.ilike('title', `%${search}%`)
+      if (category !== 'All') query = query.eq('category', category)
+      if (location) query = query.ilike('location', `%${location}%`)
+      if (priceMin) query = query.gte('price', parseFloat(priceMin))
+      if (priceMax) query = query.lte('price', parseFloat(priceMax))
+      if (conditions.length > 0) query = query.in('condition', conditions)
+
+      if (sortBy === 'newest') query = query.order('created_at', { ascending: false })
+      else if (sortBy === 'oldest') query = query.order('created_at', { ascending: true })
+      else if (sortBy === 'price_low') query = query.order('price', { ascending: true })
+      else if (sortBy === 'price_high') query = query.order('price', { ascending: false })
+
+      return query
+    }
+
+    const runQuery = async (query) => {
+      const { data, error } = await query.limit(50)
+      return { data, error }
+    }
+
+    let result = await runQuery(buildQuery())
+
+    if (result.error) {
+      const msg = (result.error.message || '').toLowerCase()
+      console.error('Error fetching ads:', result.error)
+      if (msg.includes('status') || msg.includes('column') || msg.includes('unknown')) {
+        result = await runQuery(buildQuery(false))
+      }
+    }
+
+    if (result.error) {
+      console.error('Ads fetch failed after fallback:', result.error)
+      setAds([])
+    } else {
+      setAds(result.data || [])
+    }
+
+    setLoading(false)
+  }, [search, category, location, priceMin, priceMax, conditions, sortBy])
+
+  useEffect(() => { fetchAds() }, [fetchAds])
 
   useEffect(() => {
-    const fetchAds = async () => {
-      setLoading(true);
-      let query = supabase
-        .from("ads")
-        .select("*")
-        .order("created_at", { ascending: false });
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
+    setSearch(params.get('q') || '')
+    setCategory(params.get('category') || 'All')
+  }, [])
 
-      if (category !== "All") query = query.eq("category", category);
+  const toggleCondition = (c) => {
+    setConditions(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])
+  }
 
-      const { data, error } = await query;
-      if (error) console.error(error);
-      setAds(data || []);
-      setLoading(false);
-    };
-    fetchAds();
-  }, [category]);
+  const resetFilters = () => {
+    setCategory('All'); setConditions([]); setLocation('')
+    setPriceMin(''); setPriceMax(''); setSortBy('newest')
+  }
 
-  const filtered = ads.filter((ad) =>
-    ad.title?.toLowerCase().includes(search.toLowerCase())
-  );
+  const formatPrice = (p) => {
+    if (!p) return 'Contact'
+    return 'Rs. ' + Number(p).toLocaleString('en-PK')
+  }
 
   return (
     <div className="min-h-screen bg-[#0b0b14] text-white">
-      <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-6">
 
-        {/* Sidebar */}
-        <aside className="md:w-56 shrink-0">
-          <div className="bg-[#111120] border border-white/[0.07] rounded-2xl p-4 md:sticky md:top-20">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">⚡ Filters</p>
+      {/* Top Search Bar */}
+      <div className="bg-[#0f0f1e] border-b border-white/[0.06] px-4 py-4">
+        <div className="max-w-6xl mx-auto flex gap-3 items-center">
+          <button onClick={() => router.back()}
+            className="text-gray-400 hover:text-white px-3 py-2 rounded-xl hover:bg-white/[0.05] transition text-sm shrink-0">
+            ← Back
+          </button>
+          <div className="flex-1 relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && fetchAds()}
+              placeholder="Search iPhone, BMW, Laptop..."
+              className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-sm placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition"
+            />
+          </div>
+          <button onClick={fetchAds}
+            className="bg-purple-600 hover:bg-purple-500 px-5 py-2.5 rounded-xl text-sm font-semibold transition shrink-0">
+            Search
+          </button>
+          <button onClick={() => setShowFilters(!showFilters)}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium border transition shrink-0 ${showFilters ? 'bg-purple-600/20 border-purple-500/40 text-purple-300' : 'border-white/[0.08] text-gray-400 hover:text-white'}`}>
+            ⚙ Filters
+          </button>
+        </div>
+      </div>
 
-            <input value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search ads..."
-              className="w-full bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-violet-500/50 mb-4 transition" />
+      <div className="max-w-6xl mx-auto px-4 py-6 flex gap-6">
 
-            <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-2">Category</p>
-            <ul className="space-y-0.5">
-              {CATEGORIES.map((cat) => (
-                <li key={cat}>
-                  <button onClick={() => setCategory(cat)}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition flex items-center justify-between ${
-                      category === cat
-                        ? "bg-violet-600/20 text-violet-300 font-semibold"
-                        : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
-                    }`}>
-                    {cat}
-                    {category === cat && <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />}
+        {/* Sidebar Filters */}
+        <aside className={`shrink-0 w-64 transition-all ${showFilters ? 'block' : 'hidden md:block'}`}>
+          <div className="bg-[#111120] border border-white/[0.06] rounded-2xl p-5 sticky top-4 space-y-5">
+
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">Filters</p>
+              <button onClick={resetFilters}
+                className="text-xs text-purple-400 hover:text-purple-300 transition">Reset</button>
+            </div>
+
+            {/* Category */}
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2">Category</p>
+              <div className="space-y-1">
+                {CATEGORIES.map(c => (
+                  <button key={c} onClick={() => setCategory(c)}
+                    className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition ${category === c ? 'bg-purple-600/20 text-purple-300' : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'}`}>
+                    {c}
                   </button>
-                </li>
-              ))}
-            </ul>
+                ))}
+              </div>
+            </div>
+
+            {/* Condition */}
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2">Condition</p>
+              <div className="space-y-1.5">
+                {CONDITIONS.map(c => (
+                  <label key={c} className="flex items-center gap-2 cursor-pointer group">
+                    <div onClick={() => toggleCondition(c)}
+                      className={`w-4 h-4 rounded border flex items-center justify-center transition ${conditions.includes(c) ? 'bg-purple-600 border-purple-600' : 'border-white/20 group-hover:border-purple-500/50'}`}>
+                      {conditions.includes(c) && <span className="text-white text-[10px]">✓</span>}
+                    </div>
+                    <span className="text-sm text-gray-400 group-hover:text-white transition">{c}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Price Range */}
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2">Price (Rs.)</p>
+              <div className="flex gap-2">
+                <input value={priceMin} onChange={e => setPriceMin(e.target.value)}
+                  placeholder="Min" type="number"
+                  className="w-full bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-1.5 text-sm placeholder-gray-700 focus:outline-none focus:border-purple-500/50" />
+                <input value={priceMax} onChange={e => setPriceMax(e.target.value)}
+                  placeholder="Max" type="number"
+                  className="w-full bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-1.5 text-sm placeholder-gray-700 focus:outline-none focus:border-purple-500/50" />
+              </div>
+            </div>
+
+            {/* Location */}
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2">Location</p>
+              <input value={location} onChange={e => setLocation(e.target.value)}
+                placeholder="City or region"
+                className="w-full bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-2 text-sm placeholder-gray-700 focus:outline-none focus:border-purple-500/50" />
+            </div>
+
+            <button onClick={fetchAds}
+              className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 rounded-xl text-sm font-semibold transition">
+              Apply Filters
+            </button>
           </div>
         </aside>
 
         {/* Main Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight">Browse Ads</h1>
-              <p className="text-gray-500 text-xs mt-0.5">
-                {loading ? "Loading..." : `${filtered.length} listing${filtered.length !== 1 ? "s" : ""} found`}
-              </p>
-            </div>
-            <button onClick={() => router.push("/ads/new")}
-              className="bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-lg shadow-violet-900/30">
-              + Post Ad
-            </button>
+
+          {/* Sort + Count */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-400">
+              {loading ? 'Searching...' : `${ads.length} ads found`}
+            </p>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+              className="bg-[#111120] border border-white/[0.08] rounded-xl px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-purple-500/50">
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="price_low">Price: Low to High</option>
+              <option value="price_high">Price: High to Low</option>
+            </select>
           </div>
 
+          {/* Ads Grid */}
           {loading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-[#111120] border border-white/[0.06] rounded-2xl h-60 animate-pulse" />
+                <div key={i} className="bg-[#111120] rounded-2xl overflow-hidden animate-pulse">
+                  <div className="h-44 bg-white/[0.04]" />
+                  <div className="p-3 space-y-2">
+                    <div className="h-3 bg-white/[0.06] rounded w-3/4" />
+                    <div className="h-4 bg-white/[0.06] rounded w-1/2" />
+                  </div>
+                </div>
               ))}
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-28 text-gray-600">
-              <span className="text-5xl mb-4">📭</span>
-              <p className="font-semibold text-sm mb-1">No ads found</p>
-              <p className="text-xs mb-4 text-gray-700">Be the first to post in this category</p>
-              <button onClick={() => router.push("/ads/new")}
-                className="text-violet-400 text-xs hover:underline">
-                Post an Ad →
+          ) : ads.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-4xl mb-4">🔍</p>
+              <p className="text-gray-400">No ads found. Try different filters.</p>
+              <button onClick={resetFilters}
+                className="mt-4 text-purple-400 hover:text-purple-300 text-sm transition">
+                Clear filters →
               </button>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtered.map((ad) => (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {ads.map(ad => (
                 <div key={ad.id}
-                  className="bg-[#111120] border border-white/[0.07] rounded-2xl overflow-hidden hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-900/10 transition-all duration-200 cursor-pointer group"
-                  onClick={() => router.push(`/ads/${ad.id}`)}>
+                  onClick={() => router.push(`/ads/${ad.id}`)}
+                  className="bg-[#111120] border border-white/[0.05] rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/30 hover:scale-[1.02] transition-all duration-200 group">
 
-                  {/* Image area */}
-                  <div className="relative h-40 bg-white/[0.03] overflow-hidden">
+                  {/* Image */}
+                  <div className="relative h-44 bg-white/[0.03] overflow-hidden">
                     {ad.image_url ? (
                       <img src={ad.image_url} alt={ad.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-4xl opacity-20">📷</span>
+                      <div className="w-full h-full flex items-center justify-center text-4xl text-white/10">
+                        📷
                       </div>
                     )}
-                    {/* Package badge */}
-                    {ad.package_type && (
-                      <span className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide ${BADGE[ad.package_type] || BADGE.basic}`}>
-                        {ad.package_type}
+                    {ad.condition && (
+                      <span className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-0.5 rounded-full border border-white/10">
+                        {ad.condition}
                       </span>
                     )}
-                    {/* Category tag */}
-                    <span className="absolute bottom-2 left-2.5 bg-black/60 backdrop-blur-sm text-[10px] text-gray-300 px-2 py-0.5 rounded-md border border-white/10">
-                      {ad.category}
-                    </span>
+                    {ad.featured && (
+                      <span className="absolute top-2 left-2 bg-purple-600/90 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                        ★ Featured
+                      </span>
+                    )}
                   </div>
 
-                  {/* Card body */}
-                  <div className="p-4">
-                    <h2 className="font-bold text-sm leading-snug line-clamp-2 mb-2 group-hover:text-violet-300 transition-colors">
-                      {ad.title}
-                    </h2>
-                    <p className="text-emerald-400 font-black text-lg">
-                      Rs. {Number(ad.price || 0).toLocaleString()}
-                    </p>
-                    <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-white/[0.05]">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div className="w-5 h-5 rounded-full bg-violet-600/70 flex items-center justify-center text-[10px] font-bold shrink-0">
-                          {(ad.seller_name || "A")[0].toUpperCase()}
-                        </div>
-                        <span className="text-gray-500 text-[11px] truncate">
-                          {ad.seller_name || "Seller"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {ad.location && (
-                          <span className="text-gray-600 text-[10px]">📍 {ad.location}</span>
-                        )}
-                        <span className="text-gray-700 text-[10px]">{timeAgo(ad.created_at)}</span>
-                      </div>
-                    </div>
+                  {/* Info */}
+                  <div className="p-3">
+                    <p className="text-[11px] text-purple-400 mb-1 uppercase tracking-wider">{ad.category}</p>
+                    <p className="text-sm font-semibold text-white line-clamp-2 leading-snug mb-2">{ad.title}</p>
+                    <p className="text-base font-black text-green-400">{formatPrice(ad.price)}</p>
+                    {ad.location && (
+                      <p className="text-[11px] text-gray-500 mt-1">📍 {ad.location}</p>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           )}
-
-          {!loading && filtered.length > 0 && (
-            <p className="text-center text-gray-700 text-xs mt-8">
-              Showing {filtered.length} of {filtered.length} listings
-            </p>
-          )}
         </div>
       </div>
     </div>
-  );
+  )
 }

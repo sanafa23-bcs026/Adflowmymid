@@ -1,5 +1,6 @@
 import "./globals.css";
 import Navbar from "../components/Navbar";
+import SupportChatButton from "../components/SupportChatButton";
 
 export const metadata = {
   title: "AdFlow Pro",
@@ -12,6 +13,7 @@ export default function RootLayout({ children }) {
       <body className="bg-[#0b0b14] text-white min-h-screen flex flex-col antialiased">
         <Navbar />
         <main className="flex-1">{children}</main>
+        <SupportChatButton />
 
         <footer className="mt-20 border-t border-white/[0.06]">
           <div className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-2 md:grid-cols-5 gap-10">
